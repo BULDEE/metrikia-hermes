@@ -1,9 +1,9 @@
 ---
 name: metrikia-weekly-report
-description: Rapport hebdomadaire de performance ads via Metrikia (vrai ROAS attribue MTA, MER, top campagnes, anomalies, reco Diana AI). Se declenche sur "rapport hebdo Metrikia", "rapport ads de la semaine", ou en cron via blueprint.
+description: Weekly ad performance report via Metrikia (true MTA-attributed ROAS, MER, top campaigns, anomalies, Diana AI recommendations). Triggers on "Metrikia weekly report", "weekly ads report", or on a schedule via blueprint.
 version: 1.0.0
 author: Alexandre Mallet / BULDEE
-license: Proprietary
+license: Apache-2.0
 platforms: [macos, linux]
 metadata:
   hermes:
@@ -12,16 +12,16 @@ metadata:
       schedule: "0 8 * * 1"
 required_environment_variables:
   - name: METRIKIA_API_KEY
-    prompt: "Cle API Metrikia (mk_live_...) pour le serveur MCP Metrikia"
+    prompt: "Metrikia API key (mk_live_...) for the Metrikia MCP server"
 ---
 
-# Rapport hebdomadaire Metrikia
+# Metrikia weekly report
 
-Genere un rapport de performance ads sur les 7 derniers jours, base sur l'attribution **Metrikia (MTA puis CRM)**, jamais les chiffres plateforme auto-declares.
+Generate an ad performance report over the last 7 days, based on **Metrikia attribution (MTA then CRM)**, never the platform self-reported numbers.
 
-## Pre-requis
+## Prerequisite
 
-Le serveur MCP Metrikia doit etre configure dans `~/.hermes/config.yaml` :
+The Metrikia MCP server must be configured in `~/.hermes/config.yaml`:
 
 ```yaml
 mcp_servers:
@@ -31,48 +31,48 @@ mcp_servers:
       Authorization: "Bearer ${METRIKIA_API_KEY}"
 ```
 
-Les outils Metrikia (`list_campaigns`, `get_campaign_performance`, `get_metrics`, `get_anomalies`, `compare_performance`, `ask_diana`) deviennent alors disponibles.
+The Metrikia tools (`list_campaigns`, `get_campaign_performance`, `get_metrics`, `get_anomalies`, `compare_performance`, `ask_diana`) then become available.
 
-## Quand l'utiliser
+## When to use
 
-- L'utilisateur demande un rapport hebdo / un bilan ads de la semaine.
-- En autonomie via le blueprint (lundi 8h), livre au home channel.
+- The user asks for a weekly report / a weekly ads recap.
+- Autonomously via the blueprint (Monday 8am), delivered to the home channel.
 
 ## Procedure
 
-1. **Periode** : 7 derniers jours (et la semaine precedente pour comparer).
-2. **Metriques globales** : `get_metrics` sur la periode. Extraire MER, ROAS global (attribution Metrikia), depense totale, revenu attribue.
-3. **Top campagnes** : `list_campaigns` puis `get_campaign_performance` sur les principales. Classer par ROAS attribue Metrikia. Toujours utiliser le ROAS MTA/CRM, jamais le ROAS plateforme.
-4. **Comparaison** : `compare_performance` semaine N vs N-1 (tendance MER/ROAS/CPA).
-5. **Anomalies** : `get_anomalies` sur la periode. Lister les alertes (depense aberrante, ROAS qui decroche, creative fatigue).
-6. **Reco IA** : `ask_diana` avec le contexte du rapport pour 2-3 recommandations actionnables.
+1. **Period**: last 7 days (and the previous week for comparison).
+2. **Global metrics**: `get_metrics` over the period. Extract MER, global ROAS (Metrikia attribution), total spend, attributed revenue.
+3. **Top campaigns**: `list_campaigns` then `get_campaign_performance` on the main ones. Rank by Metrikia-attributed ROAS. Always use MTA/CRM ROAS, never platform ROAS.
+4. **Comparison**: `compare_performance` week N vs N-1 (MER/ROAS/CPA trend).
+5. **Anomalies**: `get_anomalies` over the period. List alerts (aberrant spend, ROAS dropping, creative fatigue).
+6. **AI recs**: `ask_diana` with the report context for 2-3 actionable recommendations.
 
-## Format de sortie
+## Output format
 
 ```
-Rapport ads Metrikia - semaine du [date]
+Metrikia ads report - week of [date]
 
-MER: X.X | ROAS global (MTA): X.Xx | Depense: X EUR | Revenu attribue: X EUR
-Tendance vs N-1: [up/down] MER, [up/down] ROAS
+MER: X.X | Global ROAS (MTA): X.Xx | Spend: X EUR | Attributed revenue: X EUR
+Trend vs N-1: [up/down] MER, [up/down] ROAS
 
-Top 3 campagnes (ROAS attribue Metrikia)
-1. [nom] - ROAS X.Xx - depense X EUR
+Top 3 campaigns (Metrikia-attributed ROAS)
+1. [name] - ROAS X.Xx - spend X EUR
 2. ...
 
 Anomalies
 - ...
 
-Reco Diana
+Diana recommendations
 - ...
 ```
 
-Garder concis. Toujours preciser que le ROAS est l'attribution Metrikia (MTA puis CRM), pas la plateforme.
+Keep it concise. Always state that the ROAS is Metrikia attribution (MTA then CRM), not the platform.
 
-## Pieges
+## Pitfalls
 
-- Ne JAMAIS utiliser un ROAS plateforme auto-declare. Si une campagne n'a pas d'attribution Metrikia, le dire (ROAS = non attribue), ne pas inventer.
-- Si `get_metrics` renvoie une periode vide ou un sync en retard, verifier `get_sync_status` avant de conclure.
+- NEVER use a platform self-reported ROAS. If a campaign has no Metrikia attribution, say so (ROAS = unattributed), do not make it up.
+- If `get_metrics` returns an empty period or a lagging sync, check `get_sync_status` before concluding.
 
 ## Verification
 
-Le rapport est valide si chaque chiffre ROAS provient d'un outil Metrikia (pas d'estimation) et si la periode couvre bien 7 jours pleins.
+The report is valid if every ROAS figure comes from a Metrikia tool (no estimate) and the period covers a full 7 days.

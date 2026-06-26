@@ -1,9 +1,9 @@
 ---
 name: metrikia-budget-alert
-description: Surveillance autonome budget et anomalies ads via Metrikia. Detecte depense aberrante, ROAS qui decroche, creative fatigue, et alerte uniquement si action requise. Tourne en cron via blueprint, livre au home channel.
+description: Autonomous budget and anomaly monitoring for ads via Metrikia. Detects aberrant spend, dropping ROAS, creative fatigue, and alerts only when action is required. Runs on a schedule via blueprint, delivers to the home channel.
 version: 1.0.0
 author: Alexandre Mallet / BULDEE
-license: Proprietary
+license: Apache-2.0
 platforms: [macos, linux]
 metadata:
   hermes:
@@ -12,47 +12,47 @@ metadata:
       schedule: "0 */6 * * *"
 required_environment_variables:
   - name: METRIKIA_API_KEY
-    prompt: "Cle API Metrikia (mk_live_...) pour le serveur MCP Metrikia"
+    prompt: "Metrikia API key (mk_live_...) for the Metrikia MCP server"
 ---
 
-# Alerte budget et anomalies Metrikia
+# Metrikia budget and anomaly alert
 
-Veille autonome : ne parle que si quelque chose merite une action. Pas de bruit.
+Autonomous watch: speak only when something needs action. No noise.
 
-## Pre-requis
+## Prerequisite
 
-Serveur MCP Metrikia configure. Outils : `get_anomalies`, `get_metrics`, `get_budget_advice`, `get_sync_status`.
+Metrikia MCP server configured. Tools: `get_anomalies`, `get_metrics`, `get_budget_advice`, `get_sync_status`.
 
-## Quand l'utiliser
+## When to use
 
-- En autonomie via blueprint (toutes les 6h).
-- A la demande : "verifie mes alertes ads".
+- Autonomously via blueprint (every 6h).
+- On demand: "check my ad alerts".
 
 ## Procedure
 
-1. **Sync** : `get_sync_status`. Si la donnee est en retard de plus de quelques heures, signaler le retard de sync et s'arreter (pas d'alerte sur donnee stale).
-2. **Anomalies** : `get_anomalies` sur les 24 dernieres heures. Filtrer sur severite reelle (ROAS qui decroche sous un seuil, depense qui explose, creative fatigue confirmee).
-3. **Budget** : si une anomalie touche l'allocation, `get_budget_advice` pour la reco concrete (couper, plafonner, redistribuer).
-4. **Decision de notification** :
-   - Rien de significatif : NE PAS notifier (silence = bon signe).
-   - Action requise : alerte courte + reco actionnable.
+1. **Sync**: `get_sync_status`. If data is lagging by more than a few hours, report the sync lag and stop (no alert on stale data).
+2. **Anomalies**: `get_anomalies` over the last 24h. Filter on real severity (ROAS dropping below a threshold, exploding spend, confirmed creative fatigue).
+3. **Budget**: if an anomaly touches allocation, `get_budget_advice` for the concrete recommendation (cut, cap, redistribute).
+4. **Notification decision**:
+   - Nothing significant: do NOT notify (silence is a good sign).
+   - Action required: short alert + actionable recommendation.
 
-## Format d'alerte (seulement si action requise)
+## Alert format (only if action is required)
 
 ```
-Alerte ads Metrikia
+Metrikia ad alert
 
-[campagne/levier]: [probleme] (attribution Metrikia)
+[campaign/lever]: [problem] (Metrikia attribution)
 Impact: ...
-Action reco: ...
+Recommended action: ...
 ```
 
-## Pieges
+## Pitfalls
 
-- Seuil de bruit eleve : mieux vaut rater une micro-variation que spammer. Une alerte = une action.
-- Ne jamais alerter sur un ROAS plateforme. Toujours l'attribution Metrikia.
-- Pas d'alerte sur donnee stale (verifier le sync d'abord).
+- High noise threshold: better to miss a micro-variation than to spam. One alert = one action.
+- Never alert on a platform ROAS. Always Metrikia attribution.
+- No alert on stale data (check the sync first).
 
 ## Verification
 
-Si rien d'actionnable, l'execution se termine sans notification. Toute alerte emise contient une action concrete, pas juste un constat.
+If nothing is actionable, the run ends with no notification. Any alert emitted contains a concrete action, not just an observation.
