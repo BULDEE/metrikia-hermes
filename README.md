@@ -35,7 +35,7 @@ hermes skills install BULDEE/metrikia-hermes/metrikia-weekly-report
 | `metrikia-weekly-report` | Weekly report (MER, attributed ROAS, top campaigns, anomalies, Diana recs) | blueprint Monday 8am |
 | `metrikia-campaign-audit` | Deep-dive audit of one campaign (perf, creatives, MTA attribution, levers) | on demand |
 | `metrikia-budget-alert` | Budget/anomaly watch (performance), alerts only when action is required | blueprint every 6h |
-| `metrikia-ops-health` | Read-only operational-health watch (ad disapprovals, delivery stopped, account flags) via a read-only provider MCP. Alerts only, never writes | blueprint every 4h |
+| `metrikia-ops-health` | Operational-health watch via Metrikia (campaign status changes, inactive creatives, sync lag, anomalies across all platforms). Alerts only, never writes | blueprint every 4h |
 
 ## Agentic boundary (read this)
 
@@ -46,7 +46,7 @@ Autonomous agent (Hermes, these skills)  =  OBSERVE + PROPOSE. Never a budget ac
 Human-driven tool (Metrikia Claude plugin /metrikia:ads-ops)  =  EXECUTE writes.
 ```
 
-These skills **never** pause, scale, or change a budget. An autonomous agent with write access to ad accounts is a money-risk (a misread message or a cron run could move real spend). So the skills read attributed truth (Metrikia) and operational health (read-only provider MCP), and when an action is warranted they **recommend it and point to the human tool** to execute it. Do not wire a write-capable provider MCP into Hermes for these skills. Write belongs to the human-in-the-loop plugin.
+These skills **never** pause, scale, or change a budget. An autonomous agent with write access to ad accounts is a money-risk (a misread message or a cron run could move real spend). They read everything from **Metrikia**, which already ingests all provider data (Meta, Google, TikTok) and serves both attributed performance and operational state. So Hermes needs only the Metrikia MCP for reads: no provider MCP is wired here, and Metrikia exposes no ad-budget write tool, which makes the budget-actuator boundary structural rather than just a convention. When an action is warranted, the skills **recommend it and point to the human tool** (the Metrikia Claude plugin `/metrikia:ads-ops`, or the platform UI) to execute it. Provider MCPs (write) belong to the human-in-the-loop plugin, not here.
 
 ## Principle
 

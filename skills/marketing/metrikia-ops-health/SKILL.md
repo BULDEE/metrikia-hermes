@@ -1,7 +1,7 @@
 ---
 name: metrikia-ops-health
-description: Autonomous read-only operational-health watch on ad accounts (ad disapprovals, delivery stopped, account flags, spend-limit hits) via a READ-ONLY provider MCP. Covers what attribution does not: platform-side operational issues. Alerts only when action is required. Never writes.
-version: 1.0.0
+description: Autonomous operational-health watch on ad accounts via Metrikia (campaign status changes, inactive creatives, sync lag, anomalies across Meta/Google/TikTok). Metrikia already ingests all provider data, so no separate provider MCP is needed. Alerts only when action is required. Never writes to ad budgets.
+version: 1.1.0
 author: Alexandre Mallet / BULDEE
 license: Apache-2.0
 platforms: [macos, linux]
@@ -17,22 +17,17 @@ required_environment_variables:
 
 # Metrikia ops-health watch
 
-Autonomous watch for the operational health of ad accounts. This is NOT performance: performance and attribution are Metrikia's job (`metrikia-weekly-report`, `metrikia-budget-alert`). This skill catches the platform-side problems attribution does not see: an ad disapproved, delivery stopped, an account flagged, a spend limit hit.
+Autonomous watch for the operational state of ad accounts. This is the lifecycle/operational side (a campaign silently went paused or archived, a creative went inactive, a sync stopped, an anomaly), distinct from the performance side (`metrikia-weekly-report`, `metrikia-budget-alert`).
+
+Metrikia already ingests all provider data (Meta, Google, TikTok) and serves it back, so this skill reads **Metrikia only**. No separate provider MCP is required or wanted.
 
 ## Boundary (non-negotiable)
 
-This is an autonomous agent. It **OBSERVES and PROPOSES, it never acts on the budget**. No pause, no scale, no budget change here. If an action is warranted, it recommends it and tells the user to execute it from the human-driven tool (the Metrikia Claude Code plugin `ads-ops` command, or the platform UI). The autonomous agent is not a budget actuator.
+Autonomous agent: it **OBSERVES and PROPOSES, never acts on the budget**. No pause, no scale, no budget change. Metrikia does not even expose an ad-budget write tool, so the agent is structurally incapable of it. If an action is warranted, recommend it and point the user to the human tool (the Metrikia Claude plugin `/metrikia:ads-ops`, or the platform UI).
 
-## Prerequisite: a READ-ONLY provider MCP
+## Prerequisite
 
-Wire a provider MCP in `~/.hermes/config.yaml` with **read-only scopes only**. The point is that the autonomous agent is structurally incapable of writes.
-
-- Pipeboard (`github.com/pipeboard-co/meta-ads-mcp`) with read scopes, or
-- Google Ads MCP (read-only by design), or per-platform read endpoints.
-
-Do NOT wire a write-capable provider MCP into Hermes. Write belongs to the human tool.
-
-Tools used (read): account status, ad review/disapproval status, delivery status, spend-limit / billing status.
+Only the Metrikia MCP (already wired). Tools used: `list_campaigns`, `get_creative_report`, `get_anomalies`, `get_sync_status`, `get_campaign_performance`.
 
 ## When to use
 
@@ -41,30 +36,35 @@ Tools used (read): account status, ad review/disapproval status, delivery status
 
 ## Procedure
 
-1. **Health pull** (read-only): for each connected account, read review status, delivery status, account/billing flags, spend-limit state.
-2. **Filter to real issues**: a disapproved ad that is live-relevant, delivery stopped on an active campaign, an account flagged or hitting a spend cap. Ignore noise (a disapproved ad in a paused campaign is not urgent).
-3. **Cross-reference impact** (optional): if an issue hits a campaign, you may pull its attributed weight from Metrikia (`get_campaign_performance`) to rank urgency (a delivery stop on a high-ROAS campaign is more urgent).
-4. **Notify decision**:
-   - Nothing wrong: do NOT notify (silence is good).
-   - Real ops issue: short alert + the recommended fix + WHERE to do it (human tool / platform UI). No automatic action.
+1. **Sync health**: `get_sync_status`. If a provider/account sync is lagging, that itself is the alert (the data is stale, downstream numbers cannot be trusted). Report and stop for that account.
+2. **Campaign status sweep**: `list_campaigns` across all accounts. Flag unexpected transitions: a campaign that is `paused` or `archived` but was active and high-value, or an account with everything paused.
+3. **Creative state**: `get_creative_report`. Flag `isActive=false` on creatives that should be running (a delivery gap), and confirmed fatigue.
+4. **Anomalies**: `get_anomalies`. Cross-reference with `get_campaign_performance` to rank urgency (an issue on a high attributed-ROAS campaign is more urgent).
+5. **Notify decision**:
+   - Everything nominal: do NOT notify (silence is good).
+   - Real operational issue: short alert + recommended fix + WHERE to do it (human tool / platform UI). No automatic action.
 
 ## Alert format (only if action is required)
 
 ```
 Metrikia ops-health alert
 
-[account / campaign]: [issue] (operational, platform-side)
-Impact: [e.g. delivery stopped on a high-ROAS campaign]
+[account / campaign]: [issue, e.g. active high-ROAS campaign now paused, or sync lagging]
+Impact: ...
 Recommended fix: ...
-Execute from: Metrikia plugin /metrikia:ads-ops or the platform UI (this agent does not write)
+Execute from: /metrikia:ads-ops (Metrikia Claude plugin) or the platform UI -- this agent does not write
 ```
+
+## Coverage note
+
+Metrikia exposes campaign/ad lifecycle status (active/paused/archived, isActive), sync state, and anomalies. Deeper platform-policy signals (ad disapprovals, account flags, billing/spend-limit holds) are surfaced only if the Metrikia MCP exposes them; if not, that is a Metrikia product enhancement (expose the providers' effective_status / review status), after which this skill picks them up with no change to the boundary.
 
 ## Pitfalls
 
 - Never take a write action. Recommend, do not execute.
-- High noise threshold: one alert = one real operational problem needing the user.
-- This is operational health, not performance. For ROAS/budget, use the Metrikia performance skills.
+- High noise threshold: one alert = one real operational problem.
+- Operational state, not performance. For ROAS/budget, use the Metrikia performance skills.
 
 ## Verification
 
-If accounts are healthy, the run ends with no notification. Any alert is a real operational issue with a recommended fix and an explicit pointer to the human tool. The agent performed zero writes.
+If accounts are nominal, the run ends with no notification. Any alert is a real operational issue with a recommended fix and a pointer to the human tool. The agent performed zero ad-budget writes.
